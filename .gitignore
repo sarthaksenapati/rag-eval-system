@@ -1,0 +1,31 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.env
+
+# Data — don't push copyrighted PDFs or large files
+data/
+qdrant_storage/
+
+# Database
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes (local only)
+pg_data/
+qdrant_data/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
