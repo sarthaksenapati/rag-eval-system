@@ -20,7 +20,8 @@ sqlalchemy
 asyncpg
 pydantic-settings
 streamlit
-pandas==2.2.0python-dotenv
+pandas==2.2.0
+python-dotenv
 httpx
 pypdf
 langchain-groq
