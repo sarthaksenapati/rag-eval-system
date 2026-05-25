@@ -3,14 +3,11 @@ sys.path.append(".")
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel
 import tempfile, os
-from backend.ingestion.loader import load_pdf, load_from_texts
-from backend.ingestion.chunker import chunk_documents, ChunkStrategy
-from backend.ingestion.embedder import embed_and_upsert, get_collection_count
 
 router = APIRouter()
 
 class IngestTextRequest(BaseModel):
-    texts: list[dict]  # [{"text": "...", "source": "..."}]
+    texts: list[dict]
     strategy: str = "semantic"
 
 class IngestResponse(BaseModel):
@@ -23,10 +20,14 @@ async def ingest_pdf(
     file: UploadFile = File(...),
     strategy: str = "fixed"
 ):
+    # Lazy imports — only load when endpoint is actually called
+    from backend.ingestion.loader import load_pdf
+    from backend.ingestion.chunker import chunk_documents, ChunkStrategy
+    from backend.ingestion.embedder import embed_and_upsert, get_collection_count
+
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
 
-    # Save upload to temp file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         content = await file.read()
         tmp.write(content)
@@ -47,6 +48,10 @@ async def ingest_pdf(
 
 @router.post("/ingest/text", response_model=IngestResponse)
 async def ingest_text(req: IngestTextRequest):
+    from backend.ingestion.loader import load_from_texts
+    from backend.ingestion.chunker import chunk_documents, ChunkStrategy
+    from backend.ingestion.embedder import embed_and_upsert, get_collection_count
+
     docs = load_from_texts(req.texts)
     chunks = chunk_documents(docs, ChunkStrategy(req.strategy))
     embed_and_upsert(chunks)
@@ -59,4 +64,5 @@ async def ingest_text(req: IngestTextRequest):
 
 @router.get("/ingest/status")
 async def ingest_status():
+    from backend.ingestion.embedder import get_collection_count
     return {"total_chunks": get_collection_count()}
