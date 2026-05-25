@@ -14,8 +14,8 @@ packaging
 filelock
 numpy
 tqdm
-ragas
-datasets
+ragas==0.1.14
+datasets==2.20.0
 sqlalchemy
 asyncpg
 pydantic-settings
