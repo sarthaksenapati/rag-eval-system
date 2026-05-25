@@ -9,6 +9,7 @@ from backend.config import settings
 import uuid
 
 _embed_model = None
+_qdrant_client = None
 
 def get_embed_model():
     global _embed_model
@@ -17,13 +18,18 @@ def get_embed_model():
         _embed_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
     return _embed_model
 
-qdrant = QdrantClient(
-    url=settings.qdrant_url,
-    api_key=settings.qdrant_api_key if settings.qdrant_api_key else None,
-    timeout=60
-)
+def get_qdrant():
+    global _qdrant_client
+    if _qdrant_client is None:
+        _qdrant_client = QdrantClient(
+            url=settings.qdrant_url,
+            api_key=settings.qdrant_api_key if settings.qdrant_api_key else None,
+            timeout=60
+        )
+    return _qdrant_client
 
 def create_collection(recreate: bool = False):
+    qdrant = get_qdrant()
     existing = [c.name for c in qdrant.get_collections().collections]
     if settings.collection_name in existing:
         if recreate:
@@ -42,6 +48,7 @@ def create_collection(recreate: bool = False):
     print(f"Created collection: {settings.collection_name}")
 
 def embed_and_upsert(chunks: list[Chunk], batch_size: int = 20):
+    qdrant = get_qdrant()
     print(f"Embedding and upserting {len(chunks)} chunks...")
 
     for i in range(0, len(chunks), batch_size):
@@ -89,7 +96,7 @@ def embed_and_upsert(chunks: list[Chunk], batch_size: int = 20):
 
 def get_collection_count() -> int:
     try:
-        info = qdrant.get_collection(settings.collection_name)
+        info = get_qdrant().get_collection(settings.collection_name)
         return info.points_count
     except Exception:
         return 0

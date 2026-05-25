@@ -3,14 +3,18 @@ sys.path.append(".")
 from qdrant_client import QdrantClient
 from backend.config import settings
 
-qdrant = QdrantClient(
-    url=settings.qdrant_url,
-    api_key=settings.qdrant_api_key if settings.qdrant_api_key else None,
-    timeout=60
-)
-
-# Lazy load — model loads on first request not at startup
+_qdrant_client = None
 _embed_model = None
+
+def get_qdrant():
+    global _qdrant_client
+    if _qdrant_client is None:
+        _qdrant_client = QdrantClient(
+            url=settings.qdrant_url,
+            api_key=settings.qdrant_api_key if settings.qdrant_api_key else None,
+            timeout=60
+        )
+    return _qdrant_client
 
 def get_embed_model():
     global _embed_model
@@ -20,13 +24,12 @@ def get_embed_model():
     return _embed_model
 
 def search(query: str, top_k: int = 10) -> list[dict]:
-    embed_model = get_embed_model()
-    query_vector = embed_model.encode(
+    query_vector = get_embed_model().encode(
         query,
         normalize_embeddings=True
     ).tolist()
 
-    results = qdrant.search(
+    results = get_qdrant().search(
         collection_name=settings.collection_name,
         query_vector=query_vector,
         limit=top_k,
