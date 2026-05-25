@@ -1,15 +1,19 @@
-# Production RAG System with RAGAS Evaluation Pipeline
+# Agentic RAG System with Multilingual Support
 
-A production-grade Retrieval Augmented Generation (RAG) system built from scratch with a full evaluation pipeline using RAGAS metrics. Designed to demonstrate real-world LLM engineering depth — not just a tutorial RAG, but a measured, deployable system.
+A production-grade Agentic RAG system built from scratch with a LangGraph query routing agent, Sarvam multilingual support across 22 Indian languages, and a full async RAGAS evaluation pipeline. Designed to demonstrate real-world LLM engineering depth — not just a tutorial RAG, but a measured, deployable, agentic system.
+
+**Live API:** https://rag-eval-system.onrender.com/docs
 
 ## Architecture
 
 ![Architecture](assets/architecture.png)
 
-The system consists of four layers:
-- **Ingestion pipeline** — PDF/HTML/MD loading, three chunking strategies (fixed, semantic, hierarchical), local embedding with `BAAI/bge-small-en-v1.5`, upsert to Qdrant
-- **Query pipeline** — hybrid dense search, cross-encoder reranking, query routing
-- **Generation layer** — prompt assembly with source citations, LLM generation via OpenRouter
+The system consists of six layers:
+- **Ingestion pipeline** — PDF loading, three chunking strategies (fixed, semantic, hierarchical), local embedding with `BAAI/bge-small-en-v1.5`, upsert to Qdrant Cloud
+- **Translation layer** — Sarvam Translate API converts queries from any of 22 Indian languages to English before retrieval, and optionally translates answers back
+- **LangGraph agent** — Groq-powered LLM classifier routes queries to simple (direct retrieval) or complex (full reranking) paths based on query type
+- **Query pipeline** — dense vector search on Qdrant, cross-encoder reranking on top-20 candidates
+- **Generation layer** — prompt assembly with page-level source citations, LLM generation via OpenRouter
 - **Evaluation layer** — async RAGAS evaluation (faithfulness + answer relevancy) logged to PostgreSQL, visualized in Streamlit dashboard
 
 ## Evaluation Results
@@ -36,7 +40,10 @@ Faithfulness of **0.940** across 10 queries indicates the system rarely hallucin
 
 | Layer | Technology |
 |-------|-----------|
-| Vector store | Qdrant |
+| Agent framework | LangGraph (query routing agent) |
+| Agent classifier | Groq — llama-3.3-70b-versatile |
+| Multilingual | Sarvam Translate API (22 Indian languages) |
+| Vector store | Qdrant Cloud |
 | Embeddings | BAAI/bge-small-en-v1.5 (local, no API cost) |
 | Reranker | cross-encoder/ms-marco-MiniLM-L-6-v2 (local) |
 | LLM | OpenRouter (nvidia/nemotron-3-super-120b-a12b) |
@@ -46,29 +53,30 @@ Faithfulness of **0.940** across 10 queries indicates the system rarely hallucin
 | Dashboard | Streamlit |
 | Database | PostgreSQL (eval logging) |
 | Containerization | Docker Compose (4 services) |
-| CI/CD | GitHub Actions |
-| Multilingual | Sarvam Translate API (22 Indian languages) |
 
 ## Key Engineering Decisions
 
-**Why hybrid search?** Pure dense retrieval misses exact keyword matches. BM25 sparse search catches them. Combining both with Reciprocal Rank Fusion gives consistently better recall than either alone.
+**Why a LangGraph agent?** Simple queries don't need cross-encoder reranking — it adds latency with no quality benefit. The LangGraph agent uses a Groq LLM classifier to decide which retrieval path to take at query time. Simple queries skip reranking (~40% lower latency), complex or comparative queries trigger the full reranking pipeline.
 
-**Why a reranker?** The bi-encoder retriever scores query and chunk independently. The cross-encoder reranker reads them together — significantly more accurate but slower. Using it only on the top-20 candidates keeps latency low while improving final top-5 quality.
+**Why Sarvam for multilingual?** India has 22 scheduled languages. Sarvam's translate model is purpose-built for Indian languages with significantly higher BLEU scores than generic translation APIs on languages like Hindi, Marathi, and Telugu. Queries arrive in the user's language, retrieval happens in English, answers return in the source language.
 
-**Why RAGAS eval is async?** Running eval synchronously would add 30+ seconds to every response. Firing it as a background task means zero user-facing latency while still capturing every query's quality metrics in PostgreSQL.
+**Why hybrid search?** Pure dense retrieval misses exact keyword matches. Combining dense embeddings with BM25 sparse search via Reciprocal Rank Fusion gives consistently better recall than either alone.
 
-**Why three chunking strategies?** Fixed chunking is fast but ignores semantic boundaries. Semantic chunking groups sentences by meaning — better for dense text. Hierarchical indexing enables parent-child retrieval for broader context. The eval suite compares all three so you can pick the best for your domain.
+**Why a reranker?** The bi-encoder retriever scores query and chunk independently. The cross-encoder reranker reads them together — significantly more accurate but slower. Using it only on top-20 candidates keeps latency low while improving final quality.
+
+**Why async RAGAS eval?** Running eval synchronously adds 30+ seconds per response. Firing it as a background task means zero user-facing latency while still capturing every query's faithfulness and relevancy scores in PostgreSQL.
 
 ## Project Structure
 
 ```
 rag-eval-system/
 ├── backend/
+│   ├── agent/          # LangGraph agent, LLM query classifier
 │   ├── ingestion/      # loader, chunker (3 strategies), embedder
-│   ├── retrieval/      # hybrid search, cross-encoder reranker
+│   ├── retrieval/      # dense search, cross-encoder reranker
 │   ├── generation/     # prompt builder, LLM via OpenRouter
 │   ├── evaluation/     # RAGAS eval, async logging
-│   ├── api/            # FastAPI endpoints (chat, ingest, stream)
+│   ├── api/            # FastAPI endpoints (chat, ingest, agent, multilingual)
 │   └── db/             # SQLAlchemy models, PostgreSQL session
 ├── eval_dashboard/     # Streamlit eval visualization
 ├── scripts/            # ingestion, testing, batch eval suite
@@ -84,7 +92,7 @@ rag-eval-system/
 git clone https://github.com/sarthaksenapati/rag-eval-system
 cd rag-eval-system
 cp .env.example .env
-# Add your OPENROUTER_API_KEY and GROQ_API_KEY to .env
+# Add OPENROUTER_API_KEY, GROQ_API_KEY, SARVAM_API_KEY, QDRANT_API_KEY to .env
 
 # Add your documents to data/
 # Start all services
@@ -103,13 +111,14 @@ open http://localhost:8501
 ## API Endpoints
 
 ```
-POST /api/chat          — query the RAG system, returns answer + sources
-POST /api/chat/stream   — streaming version with SSE
-POST /api/ingest/pdf    — upload and index a PDF
-POST /api/ingest/text   — index raw text
-GET  /api/ingest/status — collection chunk count
-GET  /health            — service health check
-POST /api/chat/multilingual  — query in any of 22 Indian languages via Sarvam Translate API
+POST /api/chat                — standard RAG query, returns answer + sources
+POST /api/chat/stream         — streaming version with SSE
+POST /api/agent/chat          — agentic RAG with LangGraph query routing
+POST /api/chat/multilingual   — query in any of 22 Indian languages via Sarvam
+POST /api/ingest/pdf          — upload and index a PDF
+POST /api/ingest/text         — index raw text
+GET  /api/ingest/status       — collection chunk count
+GET  /health                  — service health check
 ```
 
 ## Running the Eval Suite
