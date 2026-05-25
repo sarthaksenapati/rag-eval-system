@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str = ""
+    sarvam_api_key: str = ""
     database_url: str
     collection_name: str = "rag_docs"
     embedding_model: str = "BAAI/bge-small-en-v1.5"

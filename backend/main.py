@@ -2,7 +2,7 @@ import sys
 sys.path.append(".")
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.api import chat, ingest
+from backend.api import chat, ingest, translate
 
 app = FastAPI(
     title="RAG Eval System",
@@ -12,7 +12,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten this in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -20,6 +20,7 @@ app.add_middleware(
 
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(ingest.router, prefix="/api", tags=["ingest"])
+app.include_router(translate.router, prefix="/api", tags=["multilingual"])
 
 @app.get("/health")
 async def health():

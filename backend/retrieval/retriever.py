@@ -1,6 +1,7 @@
 import sys
 sys.path.append(".")
 from qdrant_client import QdrantClient
+from qdrant_client.models import Query
 from backend.config import settings
 
 _qdrant_client = None
@@ -29,12 +30,12 @@ def search(query: str, top_k: int = 10) -> list[dict]:
         normalize_embeddings=True
     ).tolist()
 
-    results = get_qdrant().search(
+    results = get_qdrant().query_points(
         collection_name=settings.collection_name,
-        query_vector=query_vector,
+        query=query_vector,
         limit=top_k,
         with_payload=True
-    )
+    ).points
 
     return [
         {
