@@ -1,3 +1,11 @@
+---
+title: RAG Eval System
+emoji: 🔍
+colorFrom: purple
+colorTo: teal
+sdk: docker
+pinned: false
+---
 # Production RAG System with RAGAS Evaluation Pipeline
 
 A production-grade Retrieval Augmented Generation (RAG) system built from scratch with a full evaluation pipeline using RAGAS metrics. Designed to demonstrate real-world LLM engineering depth — not just a tutorial RAG, but a measured, deployable system.
