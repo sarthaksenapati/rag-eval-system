@@ -47,6 +47,7 @@ Faithfulness of **0.940** across 10 queries indicates the system rarely hallucin
 | Database | PostgreSQL (eval logging) |
 | Containerization | Docker Compose (4 services) |
 | CI/CD | GitHub Actions |
+| Multilingual | Sarvam Translate API (22 Indian languages) |
 
 ## Key Engineering Decisions
 
@@ -108,6 +109,7 @@ POST /api/ingest/pdf    — upload and index a PDF
 POST /api/ingest/text   — index raw text
 GET  /api/ingest/status — collection chunk count
 GET  /health            — service health check
+POST /api/chat/multilingual  — query in any of 22 Indian languages via Sarvam Translate API
 ```
 
 ## Running the Eval Suite

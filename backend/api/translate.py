@@ -25,7 +25,7 @@ class MultilingualChatRequest(BaseModel):
     query: str
     source_language: str = "hi-IN"  # default Hindi
     top_k: int = 4
-    translate_response: bool = False  # optionally translate answer back
+    translate_response: bool = True  # optionally translate answer back
 
 class MultilingualChatResponse(BaseModel):
     original_query: str
