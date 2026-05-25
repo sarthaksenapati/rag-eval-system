@@ -12,9 +12,25 @@ try:
     from fastapi import FastAPI
     print("4. FastAPI OK", flush=True)
 
-    print("5. importing main...", flush=True)
+    print("5. importing chat api...", flush=True)
+    from backend.api import chat
+    print("6. chat OK", flush=True)
+
+    print("7. importing ingest api...", flush=True)
+    from backend.api import ingest
+    print("8. ingest OK", flush=True)
+
+    print("9. importing translate api...", flush=True)
+    from backend.api import translate
+    print("10. translate OK", flush=True)
+
+    print("11. importing agent api...", flush=True)
+    from backend.api import agent
+    print("12. agent OK", flush=True)
+
+    print("13. importing main...", flush=True)
     from backend import main
-    print("6. main OK", flush=True)
+    print("14. main OK", flush=True)
 
 except Exception as e:
     print(f"ERROR: {e}", flush=True)
