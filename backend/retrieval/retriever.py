@@ -1,30 +1,37 @@
 import sys
 sys.path.append(".")
 from qdrant_client import QdrantClient
-from sentence_transformers import SentenceTransformer
 from backend.config import settings
 
-qdrant = QdrantClient(url=settings.qdrant_url)
-embed_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+qdrant = QdrantClient(
+    url=settings.qdrant_url,
+    api_key=settings.qdrant_api_key if settings.qdrant_api_key else None,
+    timeout=60
+)
 
+# Lazy load — model loads on first request not at startup
+_embed_model = None
+
+def get_embed_model():
+    global _embed_model
+    if _embed_model is None:
+        from sentence_transformers import SentenceTransformer
+        _embed_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+    return _embed_model
 
 def search(query: str, top_k: int = 10) -> list[dict]:
-    """
-    Embeds the query and retrieves the top_k most similar chunks from Qdrant.
-    Returns a list of dicts with text, score, and metadata.
-    """
-    # Embed the query the same way we embedded the chunks
+    embed_model = get_embed_model()
     query_vector = embed_model.encode(
         query,
         normalize_embeddings=True
     ).tolist()
 
-    results = qdrant.query_points(
+    results = qdrant.search(
         collection_name=settings.collection_name,
-        query=query_vector,
+        query_vector=query_vector,
         limit=top_k,
         with_payload=True
-    ).points
+    )
 
     return [
         {
