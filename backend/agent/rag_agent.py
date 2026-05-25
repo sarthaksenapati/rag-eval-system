@@ -6,6 +6,7 @@ from backend.retrieval.retriever import search
 from backend.retrieval.reranker import rerank
 from backend.generation.llm import generate_answer
 from backend.config import settings
+import httpx, json
 
 # ── State ────────────────────────────────────────────────
 class RAGState(TypedDict):
@@ -16,45 +17,57 @@ class RAGState(TypedDict):
     answer: str
 
 # ── Nodes ────────────────────────────────────────────────
-def classify_query(state: RAGState) -> RAGState:
-    """
-    Classifies query as simple or complex.
-    Simple: single question, short, factual
-    Complex: multi-part, comparative, analytical
-    """
-    query = state["query"].strip()
-    complex_signals = [
-        " and ", " vs ", " compare", " difference",
-        " how does", " why does", " explain",
-        "?", "multiple", " both"
-    ]
-    query_lower = query.lower()
-    word_count = len(query.split())
+async def classify_query(state: RAGState) -> RAGState:
+    """Uses Groq LLM to classify query as simple or complex."""
+    prompt = f"""You are a query classifier for a RAG system.
 
-    is_complex = (
-        word_count > 12 or
-        sum(1 for s in complex_signals if s in query_lower) >= 2
-    )
+Classify the query below as "simple" or "complex".
 
-    return {**state, "query_type": "complex" if is_complex else "simple"}
+SIMPLE = single factual lookup, one concept, short answer expected
+Examples:
+- "What is Law 16?"
+- "What does the book say about enemies?"
+
+COMPLEX = requires comparing multiple concepts, synthesis, or multi-part reasoning
+Examples:
+- "Compare how absence and honesty are used as power tactics"
+- "How does the book treat friendship vs enemies differently?"
+
+Query: "{state["query"]}"
+
+Reply with exactly one word: simple or complex"""
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.groq_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 5,
+                "temperature": 0,
+            }
+        )
+        result = response.json()
+        classification = result["choices"][0]["message"]["content"].strip().lower()
+
+    query_type = "complex" if "complex" in classification else "simple"
+    print(f"[CLASSIFIER] '{state['query'][:50]}' → {query_type}")
+    return {**state, "query_type": query_type}
 
 
-def simple_retrieve(state: RAGState) -> RAGState:
-    """
-    Simple path — retrieve top 3, skip reranking.
-    Faster, used for straightforward factual queries.
-    """
+async def simple_retrieve(state: RAGState) -> RAGState:
+    """Simple path — retrieve top 3, skip reranking."""
     candidates = search(state["query"], top_k=5)
-    # No reranking — just take top 3 by embedding score
     top_3 = candidates[:3]
     return {**state, "candidates": candidates, "reranked": top_3}
 
 
-def complex_retrieve(state: RAGState) -> RAGState:
-    """
-    Complex path — retrieve top 20, full reranking pipeline.
-    More thorough, used for multi-part or analytical queries.
-    """
+async def complex_retrieve(state: RAGState) -> RAGState:
+    """Complex path — retrieve top 20, full reranking pipeline."""
     candidates = search(state["query"], top_k=20)
     reranked = rerank(state["query"], candidates, top_k=5)
     return {**state, "candidates": candidates, "reranked": reranked}
@@ -67,7 +80,7 @@ async def generate(state: RAGState) -> RAGState:
 
 
 def route_query(state: RAGState) -> Literal["simple_retrieve", "complex_retrieve"]:
-    """Conditional edge — routes based on query classification."""
+    """Conditional edge — routes based on LLM classification."""
     return "simple_retrieve" if state["query_type"] == "simple" else "complex_retrieve"
 
 
@@ -75,16 +88,13 @@ def route_query(state: RAGState) -> Literal["simple_retrieve", "complex_retrieve
 def build_rag_agent():
     graph = StateGraph(RAGState)
 
-    # Add nodes
     graph.add_node("classify", classify_query)
     graph.add_node("simple_retrieve", simple_retrieve)
     graph.add_node("complex_retrieve", complex_retrieve)
     graph.add_node("generate", generate)
 
-    # Entry point
     graph.set_entry_point("classify")
 
-    # Conditional edge after classification
     graph.add_conditional_edges(
         "classify",
         route_query,
@@ -94,12 +104,10 @@ def build_rag_agent():
         }
     )
 
-    # Both paths lead to generation
     graph.add_edge("simple_retrieve", "generate")
     graph.add_edge("complex_retrieve", "generate")
     graph.add_edge("generate", END)
 
     return graph.compile()
 
-# Single compiled agent instance
 rag_agent = build_rag_agent()
