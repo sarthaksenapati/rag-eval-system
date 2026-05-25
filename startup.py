@@ -2,21 +2,31 @@ import sys
 import traceback
 
 print("=== STARTUP DEBUG ===", flush=True)
-print(f"Python: {sys.version}", flush=True)
-print(f"Path: {sys.path}", flush=True)
 
 try:
-    print("Importing config...", flush=True)
+    print("1. importing config...", flush=True)
     from backend.config import settings
-    print(f"Config OK — collection: {settings.collection_name}", flush=True)
+    print("2. config OK", flush=True)
 
-    print("Importing main...", flush=True)
+    print("3. importing FastAPI...", flush=True)
+    from fastapi import FastAPI
+    print("4. FastAPI OK", flush=True)
+
+    print("5. importing chat api...", flush=True)
+    from backend.api import chat
+    print("6. chat OK", flush=True)
+
+    print("7. importing ingest api...", flush=True)
+    from backend.api import ingest
+    print("8. ingest OK", flush=True)
+
+    print("9. importing main...", flush=True)
     from backend import main
-    print("Main OK", flush=True)
+    print("10. main OK", flush=True)
 
 except Exception as e:
     print(f"ERROR: {e}", flush=True)
     traceback.print_exc()
     sys.exit(1)
 
-print("=== ALL IMPORTS OK ===", flush=True)
+print("=== ALL OK ===", flush=True)
