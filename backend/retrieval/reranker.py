@@ -1,12 +1,12 @@
 import sys
 sys.path.append(".")
-from sentence_transformers import CrossEncoder
 
 _reranker_model = None
 
 def get_reranker():
     global _reranker_model
     if _reranker_model is None:
+        from sentence_transformers import CrossEncoder
         _reranker_model = CrossEncoder(
             "cross-encoder/ms-marco-MiniLM-L-6-v2",
             max_length=512
