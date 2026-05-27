@@ -1,12 +1,14 @@
-import sys, time, httpx
+import sys, time
 sys.path.append(".")
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
+from sentence_transformers import SentenceTransformer
 from backend.ingestion.chunker import Chunk
 from backend.config import settings
 import uuid
 
 _qdrant_client = None
+_embedding_model = None
 
 def get_qdrant():
     global _qdrant_client
@@ -18,16 +20,16 @@ def get_qdrant():
         )
     return _qdrant_client
 
+def get_embedding_model() -> SentenceTransformer:
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = SentenceTransformer(settings.embedding_model)
+    return _embedding_model
+
 def get_embeddings(texts: list[str]) -> list[list[float]]:
-    """Get embeddings via HuggingFace Inference API — no local model needed."""
-    response = httpx.post(
-        f"https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5",
-        headers={"Authorization": f"Bearer {settings.hf_token}"},
-        json={"inputs": texts, "options": {"wait_for_model": True}},
-        timeout=60
-    )
-    response.raise_for_status()
-    return response.json()
+    """Get embeddings using local sentence-transformers model."""
+    model = get_embedding_model()
+    return model.encode(texts, show_progress_bar=False).tolist()
 
 def create_collection(recreate: bool = False):
     qdrant = get_qdrant()
