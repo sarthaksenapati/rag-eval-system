@@ -1,10 +1,12 @@
 import sys
-import httpx
+import asyncio
 sys.path.append(".")
 from qdrant_client import AsyncQdrantClient
+from sentence_transformers import SentenceTransformer
 from backend.config import settings
 
 _qdrant_client = None
+_embedding_model = None
 
 def get_qdrant():
     global _qdrant_client
@@ -16,18 +18,18 @@ def get_qdrant():
         )
     return _qdrant_client
 
+def get_embedding_model() -> SentenceTransformer:
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = SentenceTransformer(settings.embedding_model)
+    return _embedding_model
+
 async def get_embedding(text: str) -> list[float]:
-    """Get single embedding via HuggingFace Inference API."""
-    if not settings.hf_token:
-        raise ValueError("HF_TOKEN environment variable is not set")
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(
-            "https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5",
-            headers={"Authorization": f"Bearer {settings.hf_token}"},
-            json={"inputs": [text], "options": {"wait_for_model": True}},
-        )
-        response.raise_for_status()
-        return response.json()[0]
+    """Get single embedding using local sentence-transformers model."""
+    model = get_embedding_model()
+    loop = asyncio.get_event_loop()
+    vector = await loop.run_in_executor(None, lambda: model.encode(text).tolist())
+    return vector
 
 async def search(query: str, top_k: int = 10) -> list[dict]:
     query_vector = await get_embedding(query)
