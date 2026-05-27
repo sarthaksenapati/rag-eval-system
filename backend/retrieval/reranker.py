@@ -1,17 +1,15 @@
 import sys
 sys.path.append(".")
 
-_reranker_model = None
-
-def get_reranker():
-    global _reranker_model
-    if _reranker_model is None:
-        from sentence_transformers import CrossEncoder
-        _reranker_model = CrossEncoder(
-            "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            max_length=512
-        )
-    return _reranker_model
+def rerank(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
+    """
+    Returns top_k candidates sorted by retrieval score.
+    Cross-encoder reranking disabled on cloud deployment to reduce memory.
+    """
+    sorted_candidates = sorted(candidates, key=lambda x: x["score"], reverse=True)
+    for c in sorted_candidates:
+        c["rerank_score"] = c["score"]
+    return sorted_candidates[:top_k]
 
 def rerank(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
     if not candidates:

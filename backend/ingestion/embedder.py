@@ -1,22 +1,12 @@
-import sys, time
+import sys, time, httpx
 sys.path.append(".")
 from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance, VectorParams, PointStruct
-)
+from qdrant_client.models import Distance, VectorParams, PointStruct
 from backend.ingestion.chunker import Chunk
 from backend.config import settings
 import uuid
 
-_embed_model = None
 _qdrant_client = None
-
-def get_embed_model():
-    global _embed_model
-    if _embed_model is None:
-        from sentence_transformers import SentenceTransformer
-        _embed_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
-    return _embed_model
 
 def get_qdrant():
     global _qdrant_client
@@ -27,6 +17,17 @@ def get_qdrant():
             timeout=60
         )
     return _qdrant_client
+
+def get_embeddings(texts: list[str]) -> list[list[float]]:
+    """Get embeddings via HuggingFace Inference API — no local model needed."""
+    response = httpx.post(
+        f"https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5",
+        headers={"Authorization": f"Bearer {settings.hf_token}"},
+        json={"inputs": texts, "options": {"wait_for_model": True}},
+        timeout=60
+    )
+    response.raise_for_status()
+    return response.json()
 
 def create_collection(recreate: bool = False):
     qdrant = get_qdrant()
@@ -55,12 +56,7 @@ def embed_and_upsert(chunks: list[Chunk], batch_size: int = 20):
         batch = chunks[i:i + batch_size]
         texts = [c.text for c in batch]
 
-        vectors = get_embed_model().encode(
-            texts,
-            batch_size=32,
-            show_progress_bar=True,
-            normalize_embeddings=True
-        ).tolist()
+        vectors = get_embeddings(texts)
 
         points = [
             PointStruct(
@@ -79,18 +75,15 @@ def embed_and_upsert(chunks: list[Chunk], batch_size: int = 20):
 
         for attempt in range(3):
             try:
-                qdrant.upsert(
-                    collection_name=settings.collection_name,
-                    points=points
-                )
+                qdrant.upsert(collection_name=settings.collection_name, points=points)
                 print(f"Upserted batch {i // batch_size + 1} ({len(batch)} chunks)")
                 break
             except Exception as e:
                 if attempt < 2:
-                    print(f"Batch {i // batch_size + 1} failed, retrying ({attempt + 1}/3)...")
+                    print(f"Batch {i // batch_size + 1} failed, retrying...")
                     time.sleep(5)
                 else:
-                    print(f"Batch {i // batch_size + 1} failed after 3 attempts: {e}")
+                    print(f"Batch {i // batch_size + 1} failed: {e}")
 
     print(f"\nDone. Total chunks in Qdrant: {get_collection_count()}")
 
