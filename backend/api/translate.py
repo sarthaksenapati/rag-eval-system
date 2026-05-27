@@ -81,7 +81,7 @@ async def multilingual_chat(req: MultilingualChatRequest):
 
     # Step 3 — optionally translate answer back
     translated_answer = None
-    if req.translate_response and req.source_language != "en-IN":
+    if not req.translate_response and req.source_language != "en-IN":
         translated_answer = translate_text(
             text=answer,
             source_lang="en-IN",
