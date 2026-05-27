@@ -21,7 +21,7 @@ class ChatResponse(BaseModel):
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    candidates = search(req.query, top_k=10)
+    candidates = await search(req.query, top_k=10)
     reranked = rerank(req.query, candidates, top_k=req.top_k)
     answer = await generate_answer(req.query, reranked)
 
@@ -57,7 +57,7 @@ async def run_eval_async(query: str, answer: str, contexts: list[str]):
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest):
     async def generate():
-        candidates = search(req.query, top_k=10)
+        candidates = await search(req.query, top_k=10)
         reranked = rerank(req.query, candidates, top_k=req.top_k)
 
         sources = [

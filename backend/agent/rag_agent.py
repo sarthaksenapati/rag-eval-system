@@ -61,14 +61,14 @@ Reply with exactly one word: simple or complex"""
 
 async def simple_retrieve(state: RAGState) -> RAGState:
     """Simple path — retrieve top 3, skip reranking."""
-    candidates = search(state["query"], top_k=5)
+    candidates = await search(state["query"], top_k=5)
     top_3 = candidates[:3]
     return {**state, "candidates": candidates, "reranked": top_3}
 
 
 async def complex_retrieve(state: RAGState) -> RAGState:
     """Complex path — retrieve top 20, full reranking pipeline."""
-    candidates = search(state["query"], top_k=20)
+    candidates = await search(state["query"], top_k=20)
     reranked = rerank(state["query"], candidates, top_k=5)
     return {**state, "candidates": candidates, "reranked": reranked}
 

@@ -75,7 +75,7 @@ async def multilingual_chat(req: MultilingualChatRequest):
         )
 
     # Step 2 — run RAG pipeline with English query
-    candidates = search(translated_query, top_k=10)
+    candidates = await search(translated_query, top_k=10)
     reranked = rerank(translated_query, candidates, top_k=req.top_k)
     answer = await generate_answer(translated_query, reranked)
 
