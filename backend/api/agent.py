@@ -2,7 +2,6 @@ import sys
 sys.path.append(".")
 from fastapi import APIRouter
 from pydantic import BaseModel
-from backend.agent.rag_agent import rag_agent
 
 router = APIRouter()
 
@@ -18,6 +17,8 @@ class AgentResponse(BaseModel):
 
 @router.post("/agent/chat", response_model=AgentResponse)
 async def agent_chat(req: AgentRequest):
+    from backend.agent.rag_agent import rag_agent  # lazy import
+
     initial_state = {
         "query": req.query,
         "query_type": "simple",

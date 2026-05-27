@@ -29,3 +29,5 @@ langchain-huggingface
 langchain-community==0.2.12
 langchain==0.2.16
 langchain-openai==0.1.25
+langgraph
+sarvamai
