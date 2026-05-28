@@ -2,7 +2,7 @@
 
 A production-grade Agentic RAG system built from scratch with a LangGraph query routing agent, Sarvam multilingual support across 22 Indian languages, and a full async RAGAS evaluation pipeline. Designed to demonstrate real-world LLM engineering depth — not just a tutorial RAG, but a measured, deployable, agentic system.
 
-**Live API:** https://rag-eval-system.onrender.com/docs
+**Live API:** https://rag-eval-system-production.up.railway.app/docs
 
 ## Architecture
 
